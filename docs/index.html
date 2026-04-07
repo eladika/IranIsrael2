@@ -1,0 +1,1372 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>מפת אירועים - גוש דן | מלחמת ישראל-איראן השנייה</title>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+  <!-- Leaflet Markercluster -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.min.js"></script>
+
+  <!-- Leaflet Heatmap -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
+
+  <style>
+    :root {
+      --bg-primary: #0a0c10;
+      --bg-secondary: #111318;
+      --bg-card: #161922;
+      --bg-hover: #1e2230;
+      --border: #252a38;
+      --border-bright: #303650;
+      --text-primary: #e8ecf4;
+      --text-secondary: #8892a4;
+      --text-dim: #4a5568;
+      --accent-blue: #3d7aed;
+      --accent-blue-dim: rgba(61,122,237,0.15);
+      --high: #22c55e;
+      --high-dim: rgba(34,197,94,0.15);
+      --medium: #eab308;
+      --medium-dim: rgba(234,179,8,0.15);
+      --low: #f97316;
+      --low-dim: rgba(249,115,22,0.15);
+      --red: #ef4444;
+      --font-mono: 'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
+      --font-ui: 'Heebo', 'Assistant', system-ui, sans-serif;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+
+    body {
+      font-family: var(--font-ui);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── HEADER ── */
+    header {
+      background: var(--bg-secondary);
+      border-bottom: 1px solid var(--border);
+      padding: 0 20px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      z-index: 1000;
+      position: relative;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .logo-badge {
+      background: var(--red);
+      color: white;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 4px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      animation: pulse-red 2s infinite;
+    }
+
+    @keyframes pulse-red {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    .header-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .header-subtitle {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-top: 1px;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .live-indicator {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--high);
+      font-weight: 500;
+    }
+
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      background: var(--high);
+      border-radius: 50%;
+      animation: blink 1.5s infinite;
+    }
+
+    @keyframes blink {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.3; transform: scale(0.8); }
+    }
+
+    .last-updated {
+      font-size: 11px;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+    }
+
+    .btn {
+      padding: 6px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s;
+      font-family: var(--font-ui);
+    }
+
+    .btn-primary {
+      background: var(--accent-blue);
+      color: white;
+    }
+    .btn-primary:hover { background: #5190ff; }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover { background: var(--bg-hover); color: var(--text-primary); }
+
+    /* ── LAYOUT ── */
+    .app-body {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── SIDEBAR ── */
+    .sidebar {
+      width: 340px;
+      background: var(--bg-secondary);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    .sidebar-tabs {
+      display: flex;
+      border-bottom: 1px solid var(--border);
+      padding: 0 16px;
+    }
+
+    .tab {
+      padding: 12px 14px;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+      white-space: nowrap;
+    }
+    .tab.active {
+      color: var(--accent-blue);
+      border-bottom-color: var(--accent-blue);
+    }
+    .tab:hover { color: var(--text-primary); }
+
+    .tab-content { display: none; flex: 1; overflow-y: auto; padding: 16px; }
+    .tab-content.active { display: flex; flex-direction: column; gap: 12px; }
+
+    /* scrollbar */
+    .tab-content::-webkit-scrollbar { width: 4px; }
+    .tab-content::-webkit-scrollbar-track { background: transparent; }
+    .tab-content::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 2px; }
+
+    /* ── STATS ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    .stat-label {
+      font-size: 10px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    .stat-value {
+      font-size: 22px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      color: var(--text-primary);
+    }
+
+    .stat-value.green { color: var(--high); }
+    .stat-value.yellow { color: var(--medium); }
+    .stat-value.orange { color: var(--low); }
+
+    .confidence-bar-wrap {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    .confidence-bar-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      margin-bottom: 6px;
+    }
+
+    .confidence-bar {
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      margin-bottom: 6px;
+      overflow: hidden;
+    }
+
+    .confidence-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.8s ease;
+    }
+
+    /* ── FILTERS ── */
+    .filter-section { }
+    .filter-label {
+      font-size: 10px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .filter-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 14px;
+    }
+
+    .chip {
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      transition: all 0.15s;
+      background: transparent;
+      font-family: var(--font-ui);
+    }
+
+    .chip.active-high { background: var(--high-dim); border-color: var(--high); color: var(--high); }
+    .chip.active-medium { background: var(--medium-dim); border-color: var(--medium); color: var(--medium); }
+    .chip.active-low { background: var(--low-dim); border-color: var(--low); color: var(--low); }
+    .chip.active-blue { background: var(--accent-blue-dim); border-color: var(--accent-blue); color: var(--accent-blue); }
+    .chip:not([class*="active"]):hover { background: var(--bg-hover); color: var(--text-primary); }
+
+    .date-range {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    .date-range input[type="range"] {
+      width: 100%;
+      accent-color: var(--accent-blue);
+      cursor: pointer;
+    }
+
+    .date-range-labels {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      margin-top: 6px;
+    }
+
+    .toggle-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .toggle-row:last-child { border-bottom: none; }
+
+    .toggle-text { font-size: 12px; color: var(--text-primary); }
+    .toggle-sub { font-size: 10px; color: var(--text-secondary); }
+
+    .toggle {
+      width: 36px;
+      height: 20px;
+      background: var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      position: relative;
+      transition: background 0.2s;
+      flex-shrink: 0;
+    }
+    .toggle.on { background: var(--accent-blue); }
+    .toggle::after {
+      content: '';
+      position: absolute;
+      width: 14px;
+      height: 14px;
+      background: white;
+      border-radius: 50%;
+      top: 3px;
+      left: 3px;
+      transition: transform 0.2s;
+    }
+    .toggle.on::after { transform: translateX(16px); }
+
+    /* ── EVENT LIST ── */
+    .event-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .event-item:hover {
+      border-color: var(--border-bright);
+      background: var(--bg-hover);
+    }
+    .event-item.focused { border-color: var(--accent-blue); }
+
+    .event-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 6px;
+    }
+
+    .event-type-badge {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 2px 7px;
+      border-radius: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .badge-direct { background: rgba(239,68,68,0.15); color: #ef4444; }
+    .badge-debris { background: rgba(168,85,247,0.15); color: #a855f7; }
+    .badge-fragment { background: rgba(234,179,8,0.15); color: #eab308; }
+
+    .event-confidence {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 10px;
+      font-family: var(--font-mono);
+    }
+
+    .conf-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+    }
+
+    .event-location {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 3px;
+    }
+
+    .event-time {
+      font-size: 10px;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+    }
+
+    .event-sources {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 6px;
+      font-size: 10px;
+      color: var(--text-dim);
+    }
+
+    /* ── MAP AREA ── */
+    .map-wrap {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* ── MAP OVERLAYS ── */
+    .map-controls {
+      position: absolute;
+      bottom: 30px;
+      right: 16px;
+      z-index: 800;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .map-btn {
+      width: 36px;
+      height: 36px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 16px;
+      transition: all 0.15s;
+      color: var(--text-primary);
+    }
+    .map-btn:hover { background: var(--bg-hover); border-color: var(--accent-blue); }
+    .map-btn.active { background: var(--accent-blue-dim); border-color: var(--accent-blue); }
+
+    /* ── TIMELINE ── */
+    .timeline-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 340px;
+      background: rgba(10,12,16,0.95);
+      border-top: 1px solid var(--border);
+      padding: 12px 20px;
+      z-index: 800;
+      backdrop-filter: blur(8px);
+    }
+
+    .timeline-inner {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .timeline-label {
+      font-size: 11px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+    }
+
+    .timeline-slider {
+      flex: 1;
+      accent-color: var(--accent-blue);
+      cursor: pointer;
+      height: 4px;
+    }
+
+    .timeline-date {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--accent-blue);
+      white-space: nowrap;
+      min-width: 100px;
+    }
+
+    .play-btn {
+      width: 28px;
+      height: 28px;
+      background: var(--accent-blue);
+      border: none;
+      border-radius: 50%;
+      color: white;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background 0.15s;
+    }
+    .play-btn:hover { background: #5190ff; }
+
+    /* ── TOOLTIP ── */
+    .custom-tooltip {
+      background: var(--bg-card) !important;
+      border: 1px solid var(--border-bright) !important;
+      border-radius: 8px !important;
+      padding: 12px !important;
+      color: var(--text-primary) !important;
+      font-family: var(--font-ui) !important;
+      font-size: 12px !important;
+      min-width: 200px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5) !important;
+    }
+
+    .tooltip-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .tooltip-title { font-weight: 600; font-size: 13px; }
+
+    .tooltip-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 4px;
+      font-size: 11px;
+    }
+
+    .tooltip-key { color: var(--text-secondary); }
+    .tooltip-val { color: var(--text-primary); font-family: var(--font-mono); }
+
+    .conf-bar-mini {
+      display: flex;
+      gap: 2px;
+      align-items: center;
+    }
+
+    .conf-pip {
+      width: 12px;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--border);
+    }
+    .conf-pip.filled { background: var(--accent-blue); }
+
+    /* ── DISCLAIMER ── */
+    .disclaimer {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(249,115,22,0.1);
+      border: 1px solid rgba(249,115,22,0.3);
+      color: var(--low);
+      font-size: 10px;
+      padding: 5px 14px;
+      border-radius: 20px;
+      z-index: 800;
+      white-space: nowrap;
+      backdrop-filter: blur(4px);
+    }
+
+    /* ── LEGEND ── */
+    .map-legend {
+      position: absolute;
+      top: 50px;
+      right: 16px;
+      background: rgba(22,25,34,0.92);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      z-index: 800;
+      backdrop-filter: blur(8px);
+      min-width: 150px;
+    }
+
+    .legend-title {
+      font-size: 10px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 5px;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .legend-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    /* ── LOADING ── */
+    #loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: var(--bg-primary);
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      transition: opacity 0.5s;
+    }
+
+    .loader-text {
+      font-size: 13px;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      letter-spacing: 1px;
+    }
+
+    .loader-bar {
+      width: 200px;
+      height: 2px;
+      background: var(--border);
+      border-radius: 1px;
+      overflow: hidden;
+    }
+
+    .loader-fill {
+      height: 100%;
+      background: var(--accent-blue);
+      border-radius: 1px;
+      animation: load 1.5s ease-in-out forwards;
+    }
+
+    @keyframes load {
+      from { width: 0%; }
+      to { width: 100%; }
+    }
+
+    .loader-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    /* ── REFRESH SPINNER ── */
+    .refreshing { animation: spin 1s linear infinite; }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+    /* ── MOBILE ── */
+    @media (max-width: 768px) {
+      .sidebar { width: 100%; position: absolute; bottom: 0; left: 0; right: 0; z-index: 900; height: 50vh; border-left: none; border-top: 1px solid var(--border); }
+      .timeline-bar { right: 0; }
+      .map-legend { display: none; }
+    }
+
+    /* Leaflet dark overrides */
+    .leaflet-container { background: #1a1f2e !important; }
+    .leaflet-tile { filter: brightness(0.85) saturate(0.7); }
+    .leaflet-control-zoom a {
+      background: var(--bg-card) !important;
+      color: var(--text-primary) !important;
+      border-color: var(--border) !important;
+    }
+    .leaflet-control-zoom a:hover { background: var(--bg-hover) !important; }
+    .leaflet-popup-content-wrapper {
+      background: var(--bg-card) !important;
+      border: 1px solid var(--border-bright) !important;
+      color: var(--text-primary) !important;
+      border-radius: 8px !important;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.5) !important;
+    }
+    .leaflet-popup-tip { background: var(--bg-card) !important; }
+    .leaflet-popup-close-button { color: var(--text-secondary) !important; }
+    .marker-cluster-small, .marker-cluster-medium, .marker-cluster-large {
+      background-color: rgba(61,122,237,0.2) !important;
+    }
+    .marker-cluster-small div, .marker-cluster-medium div, .marker-cluster-large div {
+      background-color: rgba(61,122,237,0.5) !important;
+      color: white !important;
+      font-weight: 700 !important;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div id="loading-overlay">
+  <div class="loader-title">🛰 מפת אירועים - גוש דן</div>
+  <div class="loader-text">טוען נתוני OSINT...</div>
+  <div class="loader-bar"><div class="loader-fill"></div></div>
+</div>
+
+<!-- Header -->
+<header>
+  <div class="header-left">
+    <span class="logo-badge">🔴 OSINT LIVE</span>
+    <div>
+      <div class="header-title">מפת אירועים ● גוש דן</div>
+      <div class="header-subtitle">מלחמת ישראל-איראן השנייה · 26 פבר׳ 2026 – היום</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="live-indicator">
+      <div class="live-dot"></div>
+      <span>עדכון חי</span>
+    </div>
+    <div class="last-updated" id="last-updated-text">—</div>
+    <button class="btn btn-ghost" id="refresh-btn" onclick="refreshData()">⟳ רענן</button>
+    <button class="btn btn-primary" onclick="exportCSV()">↓ CSV</button>
+  </div>
+</header>
+
+<!-- App body -->
+<div class="app-body">
+
+  <!-- Map -->
+  <div class="map-wrap">
+    <div id="map"></div>
+
+    <div class="disclaimer">⚠️ הנתונים מבוססים על מקורות פתוחים (OSINT) בלבד ועשויים להיות חלקיים. לא לשימוש מבצעי.</div>
+
+    <!-- Legend -->
+    <div class="map-legend">
+      <div class="legend-title">רמת אמינות</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#22c55e"></div>גבוהה (80–100)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#eab308"></div>בינונית (50–79)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#f97316"></div>נמוכה (0–49)</div>
+      <div style="height:8px; border-top:1px solid var(--border); margin:8px 0;"></div>
+      <div class="legend-title">סוג אירוע</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#ef4444"></div>פגיעה ישירה</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#a855f7"></div>שיירי יירוט</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#eab308"></div>פגיעת רסיסים</div>
+    </div>
+
+    <!-- Map control buttons -->
+    <div class="map-controls">
+      <div class="map-btn" id="btn-cluster" title="קיבוץ מרקרים" onclick="toggleClustering()">⬡</div>
+      <div class="map-btn" id="btn-heat" title="מפת חום" onclick="toggleHeatmap()">🔥</div>
+      <div class="map-btn" id="btn-radius" title="הצג רדיוסי אי-ודאות" onclick="toggleRadius()">◎</div>
+    </div>
+
+    <!-- Timeline bar -->
+    <div class="timeline-bar">
+      <div class="timeline-inner">
+        <span class="timeline-label">ציר זמן</span>
+        <button class="play-btn" id="play-btn" onclick="togglePlay()">▶</button>
+        <input type="range" class="timeline-slider" id="timeline-slider"
+               min="0" max="100" value="100"
+               oninput="handleTimelineChange(this.value)" />
+        <span class="timeline-date" id="timeline-date-label">כל האירועים</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sidebar-tabs">
+      <div class="tab active" onclick="switchTab('events', this)">אירועים</div>
+      <div class="tab" onclick="switchTab('stats', this)">סטטיסטיקה</div>
+      <div class="tab" onclick="switchTab('filters', this)">פילטרים</div>
+    </div>
+
+    <!-- Events tab -->
+    <div class="tab-content active" id="tab-events"></div>
+
+    <!-- Stats tab -->
+    <div class="tab-content" id="tab-stats">
+      <div class="stats-grid" id="stats-grid"></div>
+
+      <div style="margin-top:4px">
+        <div class="filter-label">פילוג לפי רמת אמינות</div>
+        <div id="confidence-bars"></div>
+      </div>
+
+      <div style="margin-top:4px">
+        <div class="filter-label">פילוג לפי מחוז</div>
+        <div id="district-bars"></div>
+      </div>
+    </div>
+
+    <!-- Filters tab -->
+    <div class="tab-content" id="tab-filters">
+      <div class="filter-label">רמת אמינות</div>
+      <div class="filter-chips" id="confidence-chips">
+        <button class="chip active-high" data-conf="high" onclick="toggleConfFilter('high', this)">🟢 גבוהה</button>
+        <button class="chip active-medium" data-conf="medium" onclick="toggleConfFilter('medium', this)">🟡 בינונית</button>
+        <button class="chip active-low" data-conf="low" onclick="toggleConfFilter('low', this)">🟠 נמוכה</button>
+      </div>
+
+      <div class="filter-label">סוג אירוע</div>
+      <div class="filter-chips" id="type-chips">
+        <button class="chip active-blue" data-type="direct_hit" onclick="toggleTypeFilter('direct_hit', this)">💥 פגיעה ישירה</button>
+        <button class="chip active-blue" data-type="interception_debris" onclick="toggleTypeFilter('interception_debris', this)">🔵 שיירי יירוט</button>
+        <button class="chip active-blue" data-type="fragment_impact" onclick="toggleTypeFilter('fragment_impact', this)">⚡ רסיסים</button>
+      </div>
+
+      <div class="filter-label">טווח תאריכים</div>
+      <div class="date-range">
+        <input type="range" id="date-filter-slider" min="0" max="100" value="100" oninput="handleDateFilter(this.value)" />
+        <div class="date-range-labels">
+          <span>26/02/2026</span>
+          <span id="date-filter-label">הכל</span>
+        </div>
+      </div>
+
+      <div class="filter-label" style="margin-top:12px">הצגה</div>
+      <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:8px 12px;">
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-text">היום בלבד</div>
+            <div class="toggle-sub">מציג אירועים מ-24 השעות האחרונות</div>
+          </div>
+          <div class="toggle" id="today-toggle" onclick="toggleTodayFilter(this)"></div>
+        </div>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-text">הצג אזורי אי-ודאות</div>
+            <div class="toggle-sub">עיגולי רדיוס למיקומים משוערים</div>
+          </div>
+          <div class="toggle on" id="radius-toggle" onclick="toggleRadius()"></div>
+        </div>
+        <div class="toggle-row">
+          <div>
+            <div class="toggle-text">קיבוץ מרקרים</div>
+            <div class="toggle-sub">אוסף מרקרים צמודים</div>
+          </div>
+          <div class="toggle on" id="cluster-toggle" onclick="toggleClustering()"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════
+let allEvents = [];
+let filteredEvents = [];
+let markers = {};
+let radiusCircles = {};
+let heatLayer = null;
+let markerCluster = null;
+let map = null;
+let showClustering = true;
+let showHeatmap = false;
+let showRadius = true;
+let activeConfFilters = new Set(['high','medium','low']);
+let activeTypeFilters = new Set(['direct_hit','interception_debris','fragment_impact']);
+let todayOnly = false;
+let timelineValue = 100;
+let isPlaying = false;
+let playInterval = null;
+let focusedEvent = null;
+
+const DATA_URL = './data/impacts.json';
+
+// ═══════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', async () => {
+  initMap();
+  await loadData();
+  setTimeout(() => {
+    document.getElementById('loading-overlay').style.opacity = '0';
+    setTimeout(() => document.getElementById('loading-overlay').style.display = 'none', 500);
+  }, 1600);
+});
+
+function initMap() {
+  map = L.map('map', {
+    center: [32.05, 34.78],
+    zoom: 12,
+    zoomControl: true,
+    preferCanvas: true
+  });
+
+  // Dark tile layer
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© <a href="https://carto.com/">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 19
+  }).addTo(map);
+
+  markerCluster = L.markerClusterGroup({
+    showCoverageOnHover: false,
+    maxClusterRadius: 40,
+    iconCreateFunction: cluster => {
+      const count = cluster.getChildCount();
+      return L.divIcon({
+        html: `<div style="background:rgba(61,122,237,0.8);color:white;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;border:2px solid rgba(61,122,237,0.3)">${count}</div>`,
+        className: '', iconSize: [32,32]
+      });
+    }
+  });
+  map.addLayer(markerCluster);
+}
+
+// ═══════════════════════════════════════════════════
+//  DATA
+// ═══════════════════════════════════════════════════
+async function loadData() {
+  try {
+    const res = await fetch(DATA_URL + '?t=' + Date.now());
+    const json = await res.json();
+    allEvents = json.events || [];
+
+    const ts = new Date(json.metadata.last_updated);
+    document.getElementById('last-updated-text').textContent =
+      ts.toLocaleString('he-IL', { timeZone:'Asia/Jerusalem', hour12:false });
+
+    applyFiltersAndRender();
+    renderStats(json);
+  } catch(e) {
+    console.error('Data load error:', e);
+    // Use embedded sample data as fallback
+    allEvents = getSampleData();
+    applyFiltersAndRender();
+  }
+}
+
+async function refreshData() {
+  const btn = document.getElementById('refresh-btn');
+  btn.classList.add('refreshing');
+  btn.disabled = true;
+  await loadData();
+  btn.classList.remove('refreshing');
+  btn.disabled = false;
+}
+
+// ═══════════════════════════════════════════════════
+//  FILTERING
+// ═══════════════════════════════════════════════════
+function applyFiltersAndRender() {
+  const now = Date.now();
+  const dayMs = 24 * 60 * 60 * 1000;
+
+  filteredEvents = allEvents.filter(evt => {
+    if (!activeConfFilters.has(evt.confidence_level)) return false;
+    if (!activeTypeFilters.has(evt.type)) return false;
+    if (todayOnly) {
+      const evtTime = new Date(evt.timestamp).getTime();
+      if (now - evtTime > dayMs) return false;
+    }
+
+    // Timeline slider
+    if (timelineValue < 100) {
+      const evts = [...allEvents].sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp));
+      const cutoffIdx = Math.floor((timelineValue / 100) * evts.length);
+      const cutoffEvt = evts[cutoffIdx];
+      if (cutoffEvt && new Date(evt.timestamp) > new Date(cutoffEvt.timestamp)) return false;
+    }
+    return true;
+  });
+
+  renderMarkers();
+  renderEventList();
+  if (showHeatmap) updateHeatmap();
+}
+
+// ═══════════════════════════════════════════════════
+//  MARKERS
+// ═══════════════════════════════════════════════════
+function getMarkerColor(evt) {
+  if (evt.confidence_level === 'high') return '#22c55e';
+  if (evt.confidence_level === 'medium') return '#eab308';
+  return '#f97316';
+}
+
+function getTypeIcon(type) {
+  if (type === 'direct_hit') return '💥';
+  if (type === 'interception_debris') return '🔵';
+  return '⚡';
+}
+
+function getTypeLabel(type) {
+  if (type === 'direct_hit') return 'פגיעה ישירה';
+  if (type === 'interception_debris') return 'שיירי יירוט';
+  return 'פגיעת רסיסים';
+}
+
+function getDamageLabel(dmg) {
+  const m = { major:'חמורה', significant:'משמעותית', moderate:'בינונית', minor:'קלה', unknown:'לא ידוע' };
+  return m[dmg] || dmg;
+}
+
+function confPips(score) {
+  const filled = Math.round(score / 20);
+  return Array.from({length:5}, (_,i) =>
+    `<div class="conf-pip ${i < filled ? 'filled' : ''}"></div>`
+  ).join('');
+}
+
+function renderMarkers() {
+  // Remove old
+  markerCluster.clearLayers();
+  Object.values(radiusCircles).forEach(c => map.removeLayer(c));
+  radiusCircles = {};
+
+  const idsOnMap = new Set();
+
+  filteredEvents.forEach(evt => {
+    idsOnMap.add(evt.id);
+    const color = getMarkerColor(evt);
+    const icon = L.divIcon({
+      html: `<div style="
+        width:18px;height:18px;
+        background:${color};
+        border:2px solid rgba(255,255,255,0.4);
+        border-radius:50%;
+        box-shadow:0 0 8px ${color}88;
+        cursor:pointer;
+      "></div>`,
+      className: '',
+      iconSize: [18,18],
+      iconAnchor: [9,9]
+    });
+
+    const marker = L.marker([evt.location.lat, evt.location.lng], { icon });
+
+    // Popup
+    const ts = new Date(evt.timestamp);
+    const dateStr = ts.toLocaleString('he-IL', { timeZone:'Asia/Jerusalem', hour12:false });
+    marker.bindPopup(`
+      <div class="custom-tooltip">
+        <div class="tooltip-header">
+          <span class="tooltip-title">${evt.location.name}</span>
+          <span style="font-size:10px;color:${color};font-weight:600">${evt.confidence_level === 'high' ? '🟢' : evt.confidence_level === 'medium' ? '🟡' : '🟠'} ${evt.confidence}%</span>
+        </div>
+        <div class="tooltip-row">
+          <span class="tooltip-key">סוג</span>
+          <span class="tooltip-val">${getTypeIcon(evt.type)} ${getTypeLabel(evt.type)}</span>
+        </div>
+        <div class="tooltip-row">
+          <span class="tooltip-key">זמן</span>
+          <span class="tooltip-val">${dateStr}</span>
+        </div>
+        <div class="tooltip-row">
+          <span class="tooltip-key">נזק</span>
+          <span class="tooltip-val">${getDamageLabel(evt.damage_level)}</span>
+        </div>
+        <div class="tooltip-row">
+          <span class="tooltip-key">מקורות</span>
+          <span class="tooltip-val">${evt.source_count} מקורות${evt.verified_media ? ' · 📷 מאומת' : ''}</span>
+        </div>
+        <div class="tooltip-row">
+          <span class="tooltip-key">אמינות</span>
+          <span class="tooltip-val"><div class="conf-bar-mini">${confPips(evt.confidence)}</div></span>
+        </div>
+        ${evt.description ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:10px;color:var(--text-secondary)">${evt.description}</div>` : ''}
+      </div>
+    `, { maxWidth: 280 });
+
+    marker.on('click', () => focusEvent(evt.id));
+    markers[evt.id] = marker;
+    markerCluster.addLayer(marker);
+
+    // Radius circle
+    if (showRadius && evt.location.blur_radius > 0) {
+      const circle = L.circle([evt.location.lat, evt.location.lng], {
+        radius: evt.location.blur_radius,
+        color: color,
+        fillColor: color,
+        fillOpacity: 0.06,
+        weight: 1,
+        opacity: 0.3
+      }).addTo(map);
+      radiusCircles[evt.id] = circle;
+    }
+  });
+
+  if (!showClustering) {
+    markerCluster.disableClustering();
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  HEATMAP
+// ═══════════════════════════════════════════════════
+function updateHeatmap() {
+  if (heatLayer) map.removeLayer(heatLayer);
+  if (!showHeatmap) return;
+  const pts = filteredEvents.map(e => [e.location.lat, e.location.lng, e.confidence / 100]);
+  heatLayer = L.heatLayer(pts, { radius:30, blur:20, maxZoom:14, gradient:{0.3:'#f97316',0.6:'#eab308',1:'#ef4444'} }).addTo(map);
+}
+
+// ═══════════════════════════════════════════════════
+//  EVENT LIST
+// ═══════════════════════════════════════════════════
+function renderEventList() {
+  const container = document.getElementById('tab-events');
+  const sorted = [...filteredEvents].sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+  if (sorted.length === 0) {
+    container.innerHTML = `<div style="text-align:center;color:var(--text-dim);padding:40px 0;font-size:13px">אין אירועים תואמים לפילטרים</div>`;
+    return;
+  }
+
+  container.innerHTML = sorted.map(evt => {
+    const ts = new Date(evt.timestamp);
+    const dateStr = ts.toLocaleDateString('he-IL', { day:'2-digit', month:'2-digit' });
+    const timeStr = ts.toLocaleTimeString('he-IL', { hour:'2-digit', minute:'2-digit', hour12:false });
+    const color = getMarkerColor(evt);
+    const typeBadge = evt.type === 'direct_hit' ? 'badge-direct' : evt.type === 'interception_debris' ? 'badge-debris' : 'badge-fragment';
+    const typeLabel = evt.type === 'direct_hit' ? 'פגיעה' : evt.type === 'interception_debris' ? 'יירוט' : 'רסיסים';
+
+    return `<div class="event-item ${focusedEvent === evt.id ? 'focused' : ''}" onclick="focusEvent('${evt.id}')">
+      <div class="event-header">
+        <span class="event-type-badge ${typeBadge}">${getTypeIcon(evt.type)} ${typeLabel}</span>
+        <div class="event-confidence">
+          <div class="conf-dot" style="background:${color}"></div>
+          <span style="color:${color}">${evt.confidence}%</span>
+        </div>
+      </div>
+      <div class="event-location">${evt.location.name}</div>
+      <div class="event-time">${dateStr} ${timeStr} · ${evt.location.district}</div>
+      <div class="event-sources">📡 ${evt.source_count} מקורות${evt.verified_media ? ' · 📷 מדיה מאומתת' : ''}</div>
+    </div>`;
+  }).join('');
+}
+
+function focusEvent(id) {
+  focusedEvent = id;
+  const evt = allEvents.find(e => e.id === id);
+  if (!evt) return;
+  map.setView([evt.location.lat, evt.location.lng], 14, { animate: true });
+  if (markers[id]) markers[id].openPopup();
+  renderEventList(); // re-render to highlight
+}
+
+// ═══════════════════════════════════════════════════
+//  STATS
+// ═══════════════════════════════════════════════════
+function renderStats(json) {
+  const total = allEvents.length;
+  const high = allEvents.filter(e => e.confidence_level === 'high').length;
+  const direct = allEvents.filter(e => e.type === 'direct_hit').length;
+  const withMedia = allEvents.filter(e => e.verified_media).length;
+
+  document.getElementById('stats-grid').innerHTML = `
+    <div class="stat-card">
+      <div class="stat-label">סה"כ אירועים</div>
+      <div class="stat-value">${total}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">אמינות גבוהה</div>
+      <div class="stat-value green">${high}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">פגיעות ישירות</div>
+      <div class="stat-value orange">${direct}</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">מאומת במדיה</div>
+      <div class="stat-value yellow">${withMedia}</div>
+    </div>
+  `;
+
+  const stats = json.stats || {};
+  const byConf = stats.by_confidence || {};
+  document.getElementById('confidence-bars').innerHTML = Object.entries(byConf).map(([k,v]) => {
+    const pct = Math.round(v / total * 100);
+    const color = k === 'high' ? '#22c55e' : k === 'medium' ? '#eab308' : '#f97316';
+    const label = k === 'high' ? 'גבוהה' : k === 'medium' ? 'בינונית' : 'נמוכה';
+    return `<div class="confidence-bar-wrap" style="margin-bottom:8px">
+      <div class="confidence-bar-label"><span>${label}</span><span style="color:${color};font-family:var(--font-mono)">${v} (${pct}%)</span></div>
+      <div class="confidence-bar"><div class="confidence-bar-fill" style="width:${pct}%;background:${color}"></div></div>
+    </div>`;
+  }).join('');
+
+  const byDist = stats.by_district || {};
+  const maxDist = Math.max(...Object.values(byDist));
+  document.getElementById('district-bars').innerHTML = Object.entries(byDist)
+    .sort((a,b) => b[1]-a[1])
+    .map(([k,v]) => {
+      const pct = Math.round(v / maxDist * 100);
+      return `<div class="confidence-bar-wrap" style="margin-bottom:8px">
+        <div class="confidence-bar-label"><span>${k}</span><span style="color:var(--text-secondary);font-family:var(--font-mono)">${v}</span></div>
+        <div class="confidence-bar"><div class="confidence-bar-fill" style="width:${pct}%;background:var(--accent-blue)"></div></div>
+      </div>`;
+    }).join('');
+}
+
+// ═══════════════════════════════════════════════════
+//  FILTER TOGGLES
+// ═══════════════════════════════════════════════════
+function toggleConfFilter(level, el) {
+  if (activeConfFilters.has(level)) {
+    activeConfFilters.delete(level);
+    el.className = 'chip';
+  } else {
+    activeConfFilters.add(level);
+    el.className = `chip active-${level === 'high' ? 'high' : level === 'medium' ? 'medium' : 'low'}`;
+  }
+  applyFiltersAndRender();
+}
+
+function toggleTypeFilter(type, el) {
+  if (activeTypeFilters.has(type)) {
+    activeTypeFilters.delete(type);
+    el.className = 'chip';
+  } else {
+    activeTypeFilters.add(type);
+    el.className = 'chip active-blue';
+  }
+  applyFiltersAndRender();
+}
+
+function toggleTodayFilter(el) {
+  todayOnly = !todayOnly;
+  el.classList.toggle('on', todayOnly);
+  applyFiltersAndRender();
+}
+
+function toggleClustering() {
+  showClustering = !showClustering;
+  document.getElementById('btn-cluster').classList.toggle('active', showClustering);
+  document.getElementById('cluster-toggle').classList.toggle('on', showClustering);
+  if (showClustering) markerCluster.enableClustering();
+  else markerCluster.disableClustering();
+}
+
+function toggleHeatmap() {
+  showHeatmap = !showHeatmap;
+  document.getElementById('btn-heat').classList.toggle('active', showHeatmap);
+  updateHeatmap();
+}
+
+function toggleRadius() {
+  showRadius = !showRadius;
+  document.getElementById('btn-radius').classList.toggle('active', showRadius);
+  document.getElementById('radius-toggle').classList.toggle('on', showRadius);
+  applyFiltersAndRender();
+}
+
+// ═══════════════════════════════════════════════════
+//  TIMELINE
+// ═══════════════════════════════════════════════════
+function handleTimelineChange(val) {
+  timelineValue = parseInt(val);
+  if (timelineValue >= 100) {
+    document.getElementById('timeline-date-label').textContent = 'כל האירועים';
+  } else {
+    const sorted = [...allEvents].sort((a,b) => new Date(a.timestamp) - new Date(b.timestamp));
+    const idx = Math.floor((timelineValue / 100) * sorted.length);
+    if (sorted[idx]) {
+      const ts = new Date(sorted[idx].timestamp);
+      document.getElementById('timeline-date-label').textContent =
+        ts.toLocaleDateString('he-IL') + ' ' +
+        ts.toLocaleTimeString('he-IL', { hour:'2-digit', minute:'2-digit', hour12:false });
+    }
+  }
+  applyFiltersAndRender();
+}
+
+function handleDateFilter(val) {
+  handleTimelineChange(val);
+  document.getElementById('timeline-slider').value = val;
+}
+
+function togglePlay() {
+  isPlaying = !isPlaying;
+  document.getElementById('play-btn').textContent = isPlaying ? '⏸' : '▶';
+  if (isPlaying) {
+    if (timelineValue >= 100) {
+      timelineValue = 0;
+      document.getElementById('timeline-slider').value = 0;
+    }
+    playInterval = setInterval(() => {
+      timelineValue = Math.min(timelineValue + 1, 100);
+      document.getElementById('timeline-slider').value = timelineValue;
+      handleTimelineChange(timelineValue);
+      if (timelineValue >= 100) {
+        isPlaying = false;
+        document.getElementById('play-btn').textContent = '▶';
+        clearInterval(playInterval);
+      }
+    }, 80);
+  } else {
+    clearInterval(playInterval);
+  }
+}
+
+// ═══════════════════════════════════════════════════
+//  TABS
+// ═══════════════════════════════════════════════════
+function switchTab(name, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+// ═══════════════════════════════════════════════════
+//  EXPORT
+// ═══════════════════════════════════════════════════
+function exportCSV() {
+  const headers = ['id','timestamp','type','confidence_level','confidence','district','location_name','lat','lng','damage_level','source_count','verified_media'];
+  const rows = filteredEvents.map(e => [
+    e.id, e.timestamp, e.type, e.confidence_level, e.confidence,
+    e.location.district, e.location.name, e.location.lat, e.location.lng,
+    e.damage_level, e.source_count, e.verified_media
+  ]);
+  const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+  const blob = new Blob(['\ufeff' + csv], { type:'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'gushdan_impacts.csv';
+  a.click(); URL.revokeObjectURL(url);
+}
+
+// ═══════════════════════════════════════════════════
+//  FALLBACK SAMPLE DATA
+// ═══════════════════════════════════════════════════
+function getSampleData() {
+  return [
+    { id:'s1', timestamp:'2026-02-26T02:14:00Z', type:'direct_hit', confidence:92, confidence_level:'high',
+      location:{name:'הולון - אזור תעשייה', district:'הולון', lat:32.012, lng:34.773, blur_radius:300},
+      source_count:3, verified_media:true, damage_level:'moderate', description:'פגיעה ישירה באזור תעשייה' },
+    { id:'s2', timestamp:'2026-03-11T01:05:00Z', type:'direct_hit', confidence:91, confidence_level:'high',
+      location:{name:'תל אביב - אזור הנמל', district:'תל אביב', lat:32.099, lng:34.771, blur_radius:300},
+      source_count:5, verified_media:true, damage_level:'significant', description:'פגיעה ישירה' },
+    { id:'s3', timestamp:'2026-03-25T03:12:00Z', type:'interception_debris', confidence:55, confidence_level:'medium',
+      location:{name:'גבעתיים', district:'גבעתיים', lat:32.072, lng:34.813, blur_radius:500},
+      source_count:2, verified_media:false, damage_level:'minor', description:'שיירי יירוט' },
+  ];
+}
+</script>
+</body>
+</html>
