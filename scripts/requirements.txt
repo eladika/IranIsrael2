@@ -1,3 +1,0 @@
-leaflet
-requests
-python-dateutil
